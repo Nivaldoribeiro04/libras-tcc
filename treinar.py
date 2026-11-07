@@ -167,54 +167,53 @@ def grafico_f1_score(metricas, classes):
     plt.savefig("grafico_f1_score.png")
     plt.close()
    
-def treinar() -> None:
-    keras.utils.set_random_seed(42) #semente fixa pra dar o mesmo resultado toda vez que treinar
-    classes = listar_classes("dataset")
-    caminho = "hand_landmarker.task" #precisa ter esse modelo do mediapipe se não da erro (meu Deus sou burro de mais)
-    opcoes = vision.HandLandmarkerOptions(
-        base_options=BaseOptions(caminho),
-        running_mode=vision.RunningMode.IMAGE,
-        num_hands=1,
-        min_hand_detection_confidence=0.5)
-    with vision.HandLandmarker.create_from_options(opcoes) as detector:
-        dados = extrair_dataset(detector, classes, 20)
 
-    classes_ordenadas = sorted(dados.keys())
-    mapa_classe_indice = {classe: indice for indice, classe in enumerate(classes_ordenadas)}
-    numero_classes = len(classes_ordenadas)
-    X_treino, y_treino, X_val, y_val = separar_validacao(dados)
-    y_treino_idx = np.asarray([mapa_classe_indice[c] for c in y_treino])
-    y_val_idx = np.asarray([mapa_classe_indice[c] for c in y_val])
-    print(f"\nValidando com {len(X_treino)} amostras de treino e {len(X_val)} amostras separadas...")
-    modelo = criar_modelo(X_treino, numero_classes) #chamada para finalmente criar o modelo após criar eu vou chamar o .fit para treinar ele
-    parada_antecipada = keras.callbacks.EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)
-    #função para treinar o modelo
-    historico = modelo.fit(
-        X_treino,
-        y_treino_idx,
-        validation_data=(X_val, y_val_idx),
-        epochs=30,  
-        batch_size=32,
-        callbacks=[parada_antecipada],
-        verbose=2,
-    )
-    previsoes_idx = np.argmax(modelo.predict(X_val, verbose=0), axis=1)
-    previsoes = np.asarray([classes_ordenadas[i] for i in previsoes_idx])
-    acuracia = accuracy_score(y_val, previsoes)
-    metricas = classification_report(y_val, previsoes, labels=classes_ordenadas, zero_division=0, output_dict=True)
-    print(f"Acurácia: {acuracia * 100:.2f}%")
-    print(classification_report(y_val, previsoes, labels=classes_ordenadas, zero_division=0, digits=3))
-    salvar_relatorio_visual(historico,acuracia)
-    matriz_confusao_grafico(y_val, previsoes, classes_ordenadas)
-    grafico_f1_score(metricas, classes_ordenadas)
-    melhor_epoca = int(np.argmin(historico.history["val_loss"]) + 1)
-    caminho_modelo_libras = "modelo_libras_mlp.h5"
-    temporario = "modelo_libras_mlp.tmp.h5"
-    modelo.save(temporario) #salva o modelo em um arquivo temporario
+keras.utils.set_random_seed(42) #semente fixa pra dar o mesmo resultado toda vez que treinar
+classes = listar_classes("dataset")
+caminho = "hand_landmarker.task" #precisa ter esse modelo do mediapipe se não da erro (meu Deus sou burro de mais)
+opcoes = vision.HandLandmarkerOptions(
+    base_options=BaseOptions(caminho),
+    running_mode=vision.RunningMode.IMAGE,
+    num_hands=1,
+    min_hand_detection_confidence=0.5)
+with vision.HandLandmarker.create_from_options(opcoes) as detector:
+    dados = extrair_dataset(detector, classes, 20)
 
-    with h5py.File(temporario, "a") as arquivo_h5: #abre o arquivo h5 para gravar novas informações
-        arquivo_h5.attrs["classes"] = json.dumps(classes_ordenadas)
-    os.replace(temporario, caminho_modelo_libras)
+classes_ordenadas = sorted(dados.keys())
+mapa_classe_indice = {classe: indice for indice, classe in enumerate(classes_ordenadas)}
+numero_classes = len(classes_ordenadas)
+X_treino, y_treino, X_val, y_val = separar_validacao(dados)
+y_treino_idx = np.asarray([mapa_classe_indice[c] for c in y_treino])
+y_val_idx = np.asarray([mapa_classe_indice[c] for c in y_val])
+print(f"\nValidando com {len(X_treino)} amostras de treino e {len(X_val)} amostras separadas...")
+modelo = criar_modelo(X_treino, numero_classes) #chamada para finalmente criar o modelo após criar eu vou chamar o .fit para treinar ele
+parada_antecipada = keras.callbacks.EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)
+#função para treinar o modelo
+historico = modelo.fit(
+    X_treino,
+    y_treino_idx,
+    validation_data=(X_val, y_val_idx),
+    epochs=30,  
+    batch_size=32,
+    callbacks=[parada_antecipada],
+    verbose=2,
+)
+previsoes_idx = np.argmax(modelo.predict(X_val, verbose=0), axis=1)
+previsoes = np.asarray([classes_ordenadas[i] for i in previsoes_idx])
+acuracia = accuracy_score(y_val, previsoes)
+metricas = classification_report(y_val, previsoes, labels=classes_ordenadas, zero_division=0, output_dict=True)
+print(f"Acurácia: {acuracia * 100:.2f}%")
+print(classification_report(y_val, previsoes, labels=classes_ordenadas, zero_division=0, digits=3))
+salvar_relatorio_visual(historico,acuracia)
+matriz_confusao_grafico(y_val, previsoes, classes_ordenadas)
+grafico_f1_score(metricas, classes_ordenadas)
+melhor_epoca = int(np.argmin(historico.history["val_loss"]) + 1)
+caminho_modelo_libras = "modelo_libras_mlp.h5"
+temporario = "modelo_libras_mlp.tmp.h5"
+modelo.save(temporario) #salva o modelo em um arquivo temporario
+
+with h5py.File(temporario, "a") as arquivo_h5: #abre o arquivo h5 para gravar novas informações
+    arquivo_h5.attrs["classes"] = json.dumps(classes_ordenadas)
+os.replace(temporario, caminho_modelo_libras)
 
 
-treinar() #chamada da função principal
